@@ -176,6 +176,17 @@
             box-shadow: 0 0 20px rgba(152, 0, 0, 0.3);
         }
 
+        .btn-quality {
+            flex: 1;
+            min-width: 150px;
+        }
+
+        .btn-quality.high {
+            background: rgba(152, 0, 0, 0.3);
+            border-color: #980000;
+            box-shadow: 0 0 20px rgba(152, 0, 0, 0.3);
+        }
+
         .audio-overlay {
             position: absolute;
             top: 0;
@@ -536,11 +547,14 @@
                 <button class="btn btn-control" id="controlAllBtn" onclick="toggleAllVideos()">⏸️ Pause All</button>
                 <button class="btn btn-loop" id="loopAllBtn" onclick="toggleLoopAll()">🔁 Loop: OFF</button>
                 <button class="btn btn-audio" id="audioBtn" onclick="toggleAudioMode()">🎵 Audio Only: OFF</button>
+                <button class="btn btn-quality" id="qualityBtn" onclick="toggleQuality()">📶 Quality: Low</button>
                 <input type="file" id="importFile" accept=".json,.txt" style="display: none;" onchange="importVideos(event)">
             </div>
             <div id="errorMessage" class="error-message"></div>
             <div class="info-text">
-                <strong>Supported formats:</strong> youtube.com/watch?v=..., youtu.be/..., youtube.com/embed/...
+                <strong>Supported formats:</strong> youtube.com/watch?v=..., youtu.be/..., youtube.com/embed/...<br>
+                <strong>⚡ Ultra-light mode:</strong> No visible player controls for max performance. Use "Pause/Play All" button or click videos individually.<br>
+                <strong>💡 Tip:</strong> Use Low Quality + Audio-Only mode to stream 100+ videos smoothly!
             </div>
         </div>
 
@@ -583,6 +597,7 @@
         let allPlaying = false;
         let loopEnabled = false;
         let audioMode = false;
+        let videoQuality = 'small'; // small (240p), medium (360p), large (480p), hd720, hd1080
 
         // Load YouTube IFrame API
         var tag = document.createElement('script');
@@ -596,6 +611,25 @@
         // This function will be called by YouTube API when it's ready
         function onYouTubeIframeAPIReady() {
             console.log('YouTube API Ready');
+        }
+
+        function toggleQuality() {
+            const btn = document.getElementById('qualityBtn');
+            
+            if (videoQuality === 'small') {
+                videoQuality = 'hd720';
+                btn.textContent = '📶 Quality: High';
+                btn.classList.add('high');
+                showSuccess('Quality set to High (720p). Better for watching videos. May buffer more with many videos.');
+            } else {
+                videoQuality = 'small';
+                btn.textContent = '📶 Quality: Low';
+                btn.classList.remove('high');
+                showSuccess('Quality set to Low (240p). Better for audio-only and multiple videos. Less buffering!');
+            }
+
+            // Note: Quality change applies to newly added videos
+            // Existing videos keep their quality to avoid playback interruption
         }
 
         function toggleAudioMode() {
@@ -709,20 +743,8 @@
             loadingIndicator.classList.add('active');
 
             try {
-                // Note: Playlist import requires a backend server
-                // You can either:
-                // 1. Run the playlist_server.py locally
-                // 2. Deploy it to a serverless platform
-                // 3. Use individual video links for now
-                
-                showError('Playlist import requires a backend server. Please add videos individually or run playlist_server.py locally.');
-                loadingIndicator.classList.remove('active');
-                return;
-                
-                /* Uncomment this section if you have a backend running:
-                const response = await fetch('YOUR_BACKEND_URL/api/playlist', {
-                /* Uncomment this section if you have a backend running:
-                const response = await fetch('YOUR_BACKEND_URL/api/playlist', {
+                // Use backend API to fetch playlist
+                const response = await fetch('http://localhost:5000/api/playlist', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -772,12 +794,11 @@
                 } else {
                     showError('No new videos were imported from the playlist.');
                 }
-                */
 
             } catch (error) {
                 loadingIndicator.classList.remove('active');
                 console.error('Playlist import error:', error);
-                showError('Playlist import requires a backend server. Add videos individually for now.');
+                showError('Failed to import playlist. Make sure the server is running: python playlist_server.py');
             }
         }
 
@@ -891,13 +912,11 @@
                 <div class="video-container">
                     <iframe
                         id="player-${video.id}"
-                        src="https://www.youtube.com/embed/${video.videoId}?enablejsapi=1&autoplay=0&rel=0&modestbranding=1&loop=${loopEnabled ? '1' : '0'}&playlist=${video.videoId}&iv_load_policy=3&disablekb=0&controls=1&fs=1&playsinline=1"
+                        src="https://www.youtube.com/embed/${video.videoId}?enablejsapi=1&autoplay=0&controls=0&disablekb=1&fs=0&modestbranding=1&playsinline=1&rel=0&showinfo=0&iv_load_policy=3&loop=${loopEnabled ? '1' : '0'}&playlist=${video.videoId}&vq=${videoQuality}"
                         frameborder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowfullscreen
-                        referrerpolicy="no-referrer-when-downgrade"
-                        onload="checkVideoLoad(${video.id})"
-                        onerror="showVideoError(${video.id}, '${video.videoId}')"
+                        allow="autoplay"
+                        loading="lazy"
+                        
                     ></iframe>
                     <div class="audio-overlay ${audioMode ? 'active' : ''}" id="audio-overlay-${video.id}">
                         <div class="audio-overlay-icon">🎵</div>
@@ -1131,13 +1150,11 @@
                     <div class="video-container">
                         <iframe
                             id="player-${video.id}"
-                            src="https://www.youtube.com/embed/${video.videoId}?enablejsapi=1&autoplay=0&rel=0&modestbranding=1&loop=${loopEnabled ? '1' : '0'}&playlist=${video.videoId}&iv_load_policy=3&disablekb=0&controls=1&fs=1&playsinline=1"
+                            src="https://www.youtube.com/embed/${video.videoId}?enablejsapi=1&autoplay=0&controls=0&disablekb=1&fs=0&modestbranding=1&playsinline=1&rel=0&showinfo=0&iv_load_policy=3&loop=${loopEnabled ? '1' : '0'}&playlist=${video.videoId}&vq=small"
                             frameborder="0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                            allowfullscreen
-                            referrerpolicy="no-referrer-when-downgrade"
-                            onload="checkVideoLoad(${video.id})"
-                            onerror="showVideoError(${video.id}, '${video.videoId}')"
+                            allow="autoplay"
+                            loading="lazy"
+                            
                         ></iframe>
                         <div class="audio-overlay ${audioMode ? 'active' : ''}" id="audio-overlay-${video.id}">
                             <div class="audio-overlay-icon">🎵</div>
